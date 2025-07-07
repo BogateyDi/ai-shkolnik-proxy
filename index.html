@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АЙ - Школьник: AI Помощник для Учебы</title>
+    
+    <!-- PWA and Mobile-Friendly Meta Tags -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="АЙ - Школьник">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        color: #1f2937; /* text-gray-800 */
+        background-color: #f0f9ff; /* sky-50, a lighter blueish white */
+        background-image:
+          url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='500' height='500' viewBox='0 0 500 500'%3e%3cstyle%3e.handwritten { font-family: 'Caveat', cursive; font-size: 22px; fill: rgba(37, 99, 235, 0.4); opacity: 0.8; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }%3c/style%3e%3ctext x='50' y='70' class='handwritten' transform='rotate(-15 50 70)'%3eE = mc²%3c/text%3e%3ctext x='200' y='50' class='handwritten' transform='rotate(10 200 50)'%3e∫(x²+1)dx%3c/text%3e%3ctext x='150' y='160' class='handwritten' transform='rotate(-5 150 160)'%3ea² + b² = c²%3c/text%3e%3ctext x='350' y='120' class='handwritten' transform='rotate(20 350 120)'%3eH₂SO₄%3c/text%3e%3ctext x='80' y='250' class='handwritten' transform='rotate(5 80 250)'%3ey = kx + b%3c/text%3e%3ctext x='250' y='300' class='handwritten' transform='rotate(-10 250 300)'%3eπ ≈ 3.14159%3c/text%3e%3ctext x='380' y='240' class='handwritten' transform='rotate(8 380 240)'%3esin(α)%3c/text%3e%3ctext x='20' y='350' class='handwritten' transform='rotate(-12 20 350)'%3eC₆H₁₂O₆%3c/text%3e%3ctext x='280' y='420' class='handwritten' transform='rotate(15 280 420)'%3eF = ma%3c/text%3e%3ctext x='100' y='450' class='handwritten' transform='rotate(-8 100 450)'%3eАтомы%3c/text%3e%3ctext x='420' y='350' class='handwritten' transform='rotate(25 420 350)'%3ef(x)%3c/text%3e%3ctext x='430' y='50' class='handwritten' transform='rotate(-5 430 50)'%3eH₂O%3c/text%3e%3c/svg%3e"),
+          linear-gradient(to right, #e0f2fe 1px, transparent 1px),
+          linear-gradient(to bottom, #e0f2fe 1px, transparent 1px);
+        background-size: 500px 500px, 20px 20px;
+        background-position: center;
+      }
+      .main-panel {
+        background-color: #ffffff;
+        border-radius: 1.5rem; /* rounded-3xl */
+        padding: 1.5rem; /* p-6, more mobile friendly */
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05);
+        border: 1px solid #e5e7eb; /* border-gray-200 */
+        transition: box-shadow 0.3s ease-in-out;
+      }
+       .main-panel:hover {
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05);
+      }
+      @media (min-width: 640px) {
+        .main-panel {
+          padding: 2rem; /* p-8 on larger screens */
+        }
+      }
+      .prose-custom {
+        color: #374151; /* text-gray-700 */
+      }
+      .prose-custom h1, .prose-custom h2, .prose-custom h3 {
+        color: #111827; /* text-gray-900 */
+      }
+      .prose-custom p {
+        margin-top: 1em;
+        margin-bottom: 1em;
+      }
+      .prose-custom ul, .prose-custom ol {
+        margin-left: 1.5em;
+      }
+       /* Custom scrollbar for a cleaner look */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #e5e7eb; /* gray-200 */
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #60a5fa; /* blue-400 */
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3b82f6; /* blue-500 */
+      }
+       /* Age Slider Styles */
+      input[type=range] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 8px;
+        background: #d1d5db; /* gray-300 */
+        border-radius: 5px;
+        outline: none;
+        opacity: 0.7;
+        transition: opacity .2s;
+      }
+      input[type=range]:hover {
+        opacity: 1;
+      }
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        background: #3b82f6; /* blue-500 */
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+      }
+      input[type=range]::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        background: #3b82f6; /* blue-500 */
+        border-radius: 50%;
+        cursor: pointer;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.1.0/client",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "docx": "https://esm.sh/docx@^9.5.1",
+    "@/App": "./App.tsx",
+    "@/components/ContentCreatorView": "./components/ContentCreatorView.tsx",
+    "@/components/HomeworkHelperView": "./components/HomeworkHelperView.tsx",
+    "@/components/CodeManagementView": "./components/CodeManagementView.tsx",
+    "@/components/Icon": "./components/Icon.tsx",
+    "@/components/OptionButton": "./components/OptionButton.tsx",
+    "@/components/SectionHeading": "./components/SectionHeading.tsx",
+    "@/components/TextInputGroup": "./components/TextInputGroup.tsx",
+    "@/types": "./types.ts",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "dotenv/": "https://esm.sh/dotenv@^17.0.1/",
+    "express": "https://esm.sh/express@^5.1.0",
+    "cors": "https://esm.sh/cors@^2.8.5",
+    "uuid": "https://esm.sh/uuid@^11.1.0",
+    "fs/": "https://esm.sh/fs@^0.0.1-security/",
+    "path": "https://esm.sh/path@^0.12.7",
+    "url": "https://esm.sh/url@^0.11.4"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="text-gray-800 min-h-screen">
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch(error => {
+              console.log('ServiceWorker registration failed: ', error);
+            });
+        });
+      }
+    </script>
+    <script type="text/babel" data-presets="env,react,typescript" data-type="module" src="./index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
