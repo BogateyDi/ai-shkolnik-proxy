@@ -38,12 +38,12 @@
         background-color: #ffffff;
         border-radius: 1.5rem; /* rounded-3xl */
         padding: 1.5rem; /* p-6, more mobile friendly */
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05);
+        box-shadow: 0 0 20px 5px rgba(0, 0, 0, 0.07);
         border: 1px solid #e5e7eb; /* border-gray-200 */
         transition: box-shadow 0.3s ease-in-out;
       }
        .main-panel:hover {
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.05);
+        box-shadow: 0 0 25px 8px rgba(0, 0, 0, 0.09);
       }
       @media (min-width: 640px) {
         .main-panel {
@@ -115,11 +115,9 @@
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.1.0",
-    "react/": "https://esm.sh/react@^19.1.0/",
-    "react-dom/client": "https://esm.sh/react-dom@^19.1.0/client",
-    "@google/genai": "https://esm.sh/@google/genai",
-    "docx": "https://esm.sh/docx@^9.5.1",
+    "react": "https://esm.sh/react@19.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.1.0/client",
+    "docx": "https://esm.sh/docx@9.5.1",
     "@/App": "./App.tsx",
     "@/components/ContentCreatorView": "./components/ContentCreatorView.tsx",
     "@/components/HomeworkHelperView": "./components/HomeworkHelperView.tsx",
@@ -130,6 +128,8 @@
     "@/components/TextInputGroup": "./components/TextInputGroup.tsx",
     "@/types": "./types.ts",
     "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.8.0",
     "dotenv/": "https://esm.sh/dotenv@^17.0.1/",
     "express": "https://esm.sh/express@^5.1.0",
     "cors": "https://esm.sh/cors@^2.8.5",
@@ -140,7 +140,6 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
 <body class="text-gray-800 min-h-screen">
     <div id="root"></div>
@@ -158,6 +157,5 @@
       }
     </script>
     <script type="text/babel" data-presets="env,react,typescript" data-type="module" src="./index.tsx"></script>
-<script type="module" src="/index.tsx"></script>
 </body>
 </html>
