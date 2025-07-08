@@ -8,7 +8,7 @@ import { HomeworkHelperView } from '@/components/HomeworkHelperView';
 import { CodeManagementView } from '@/components/CodeManagementView';
 import type { ContentCreatorState, HomeworkHelperState, PrepaidCodeState, PurchaseState, PackageInfo } from '@/types';
 
-const PROXY_URL = 'https://ai-shkolnik-proxy-bogateydi.onrender.com'; // Fixed: Point to the correct backend URL
+const PROXY_URL = 'https://ai-shkolnik-proxy-bogateydi.onrender.com';
 
 declare global {
   interface Window {
@@ -128,10 +128,11 @@ const App = () => {
   const initiatePayment = useCallback(async (description: string, onConfirm: () => Promise<void>) => {
       setPaymentState({ isProcessing: true, status: 'creating', error: null, pendingAction: onConfirm });
       try {
+          const returnUrl = `${window.location.origin}${window.location.pathname}`;
           const response = await fetch(`${PROXY_URL}/api/create-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ description, amount: 10, returnUrl: window.location.href }),
+              body: JSON.stringify({ description, amount: 10, returnUrl }),
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Не удалось создать платеж.');
@@ -336,13 +337,14 @@ const App = () => {
   const handlePurchasePackage = async (pack: PackageInfo) => {
       setPurchaseState({...initialPurchaseState, isPurchasing: true, status: 'creating'});
       try {
+          const returnUrl = `${window.location.origin}${window.location.pathname}`;
           const response = await fetch(`${PROXY_URL}/api/create-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   description: `Пакет "${pack.name}" для АЙ-Школьник`,
                   amount: pack.price,
-                  returnUrl: window.location.href,
+                  returnUrl: returnUrl,
                   packageId: pack.id
               }),
           });
@@ -388,7 +390,10 @@ const App = () => {
                 {isError ? (
                     <Icon name="fas fa-times-circle" className="text-5xl mb-4 text-red-500" />
                 ) : (
-                    <Icon name="fas fa-spinner fa-spin" className="text-5xl mb-4 text-blue-500" />
+                    <div className="relative w-16 h-16 mx-auto mb-4">
+                        <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
+                    </div>
                 )}
                 
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">
