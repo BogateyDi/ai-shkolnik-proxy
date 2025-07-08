@@ -8,7 +8,7 @@ import { HomeworkHelperView } from '@/components/HomeworkHelperView';
 import { CodeManagementView } from '@/components/CodeManagementView';
 import type { ContentCreatorState, HomeworkHelperState, PrepaidCodeState, PurchaseState, PackageInfo } from '@/types';
 
-const PROXY_URL = ''; // Now served from the same origin
+const PROXY_URL = 'https://ai-shkolnik-proxy-bogateydi.onrender.com'; // Fixed: Point to the correct backend URL
 
 declare global {
   interface Window {
