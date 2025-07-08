@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-shkolnik-cache-v10'; // Incremented cache version
+const CACHE_NAME = 'ai-shkolnik-cache-v11'; // Incremented cache version
 const urlsToCache = [
   './',
   './index.html',
@@ -8,7 +8,8 @@ const urlsToCache = [
   './types.ts',
   './components/ContentCreatorView.tsx',
   './components/HomeworkHelperView.tsx',
-  './components/CodeManagementView.tsx',
+  './components/PromoCodeInputView.tsx',
+  './components/PurchaseView.tsx',
   './components/Icon.tsx',
   './components/OptionButton.tsx',
   './components/SectionHeading.tsx',

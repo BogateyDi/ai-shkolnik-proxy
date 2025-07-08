@@ -5,7 +5,8 @@ import { Document, Packer, Paragraph } from 'docx';
 import { Icon } from '@/components/Icon';
 import { ContentCreatorView } from '@/components/ContentCreatorView';
 import { HomeworkHelperView } from '@/components/HomeworkHelperView';
-import { CodeManagementView } from '@/components/CodeManagementView';
+import { PromoCodeInputView } from '@/components/PromoCodeInputView';
+import { PurchaseView } from '@/components/PurchaseView';
 import type { ContentCreatorState, HomeworkHelperState, PrepaidCodeState, PurchaseState, PackageInfo } from '@/types';
 
 const PROXY_URL = 'https://ai-shkolnik-proxy-bogateydi.onrender.com';
@@ -28,17 +29,9 @@ const saveAsUtil = async (blob: Blob, filename: string) => {
     URL.revokeObjectURL(url);
 };
 
-// --- Payment Related Types and States ---
-type PaymentStatus = 'idle' | 'creating' | 'redirecting' | 'waiting' | 'success' | 'failed' | 'canceled';
-interface PaymentState {
-  isProcessing: boolean;
-  status: PaymentStatus;
-  error: string | null;
-  pendingAction: (() => Promise<void>) | null;
-}
-
 // --- Package Info ---
 export const purchasePackages: PackageInfo[] = [
+    { id: 'pack2', name: '2 генерации', generations: 2, price: 20, discount: 0, icon: 'fas fa-bolt' },
     { id: 'pack10', name: '10 генераций', generations: 10, price: 80, discount: 20, icon: 'fas fa-star' },
     { id: 'pack100', name: '100 генераций', generations: 100, price: 500, discount: 50, icon: 'fas fa-crown' },
 ];
@@ -47,26 +40,17 @@ export const purchasePackages: PackageInfo[] = [
 const App = () => {
   const initialContentCreatorState: ContentCreatorState = { docType: null, topic: '', age: 12, isGenerating: false, generationStep: 'idle', generatedText: null, originalityScore: null, originalityExplanation: null, error: null };
   const initialHomeworkHelperState: HomeworkHelperState = { file: null, fileContent: null, fileType: null, fileName: null, isProcessing: false, solution: null, error: null, isSimplifying: false };
-  const initialPaymentState: PaymentState = { isProcessing: false, status: 'idle', error: null, pendingAction: null };
   const initialPrepaidCodeState: PrepaidCodeState = { code: '', isValid: null, remainingUses: null, error: null, isLoading: false };
   const initialPurchaseState: PurchaseState = { isPurchasing: false, status: 'idle', error: null, purchasedCode: null };
 
   const [contentCreatorState, setContentCreatorState] = useState<ContentCreatorState>(initialContentCreatorState);
   const [homeworkHelperState, setHomeworkHelperState] = useState<HomeworkHelperState>(initialHomeworkHelperState);
-  const [paymentState, setPaymentState] = useState<PaymentState>(initialPaymentState);
   const [purchaseState, setPurchaseState] = useState<PurchaseState>(initialPurchaseState);
   const [prepaidCodeState, setPrepaidCodeState] = useState<PrepaidCodeState>(initialPrepaidCodeState);
   const [userEnteredCode, setUserEnteredCode] = useState('');
   
   const paymentPollRef = useRef<{ intervalId: number | null, timeoutId: number | null }>({ intervalId: null, timeoutId: null });
   
-  useEffect(() => {
-    return () => {
-      if (paymentPollRef.current.intervalId) clearInterval(paymentPollRef.current.intervalId);
-      if (paymentPollRef.current.timeoutId) clearTimeout(paymentPollRef.current.timeoutId);
-    };
-  }, []);
-
   const getGenericApiErrorMessage = (error: unknown, baseMessage: string): string => {
     if (error instanceof Error) return error.message;
     return baseMessage;
@@ -117,45 +101,97 @@ const App = () => {
 
     const timeoutId = setTimeout(() => {
         clearPaymentPolling();
-        if ((paymentState.status === 'waiting' && !paymentState.isProcessing) || (purchaseState.status === 'waiting' && !purchaseState.isPurchasing)) {
+        if (purchaseState.status === 'waiting') {
              onFail();
         }
     }, 5 * 60 * 1000);
 
     paymentPollRef.current = { intervalId: intervalId as any, timeoutId: timeoutId as any };
-  }, [paymentState, purchaseState]);
+  }, [purchaseState]);
 
-  const initiatePayment = useCallback(async (description: string, onConfirm: () => Promise<void>) => {
-      setPaymentState({ isProcessing: true, status: 'creating', error: null, pendingAction: onConfirm });
+  const claimPurchasedCode = async (paymentId: string, packageId: string) => {
+      setPurchaseState(prev => ({...prev, isPurchasing: true, status: 'claiming'}));
       try {
-          const returnUrl = `${window.location.origin}${window.location.pathname}`;
+        const response = await fetch(`${PROXY_URL}/api/claim-package`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentId, packageId }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'success', purchasedCode: data.purchasedCode}));
+        
+        setUserEnteredCode(data.purchasedCode);
+        setPrepaidCodeState({ ...initialPrepaidCodeState, isLoading: true });
+        const checkResponse = await fetch(`${PROXY_URL}/api/check-code`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: data.purchasedCode }) });
+        const checkData = await checkResponse.json();
+        if(checkResponse.ok) {
+            setPrepaidCodeState({ code: data.purchasedCode, isValid: true, remainingUses: checkData.remaining, error: null, isLoading: false });
+        }
+        
+      } catch (error) {
+        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'failed', error: getGenericApiErrorMessage(error, 'Не удалось получить код.')}));
+      } finally {
+        localStorage.removeItem('paymentCheck');
+      }
+  };
+
+  useEffect(() => {
+    const checkPendingPayment = async () => {
+        const pendingPaymentJSON = localStorage.getItem('paymentCheck');
+        if (pendingPaymentJSON) {
+            const pendingPayment = JSON.parse(pendingPaymentJSON);
+            const TEN_MINUTES = 10 * 60 * 1000;
+            if (Date.now() - pendingPayment.timestamp > TEN_MINUTES) {
+                localStorage.removeItem('paymentCheck');
+                return;
+            }
+            setPurchaseState(prev => ({ ...prev, status: 'waiting', isPurchasing: true }));
+            await pollPaymentStatus(
+                pendingPayment.paymentId,
+                (metadata) => claimPurchasedCode(pendingPayment.paymentId, metadata.packageId),
+                () => {
+                    setPurchaseState({...initialPurchaseState, status: 'failed', error: 'Покупка была отменена или не удалась.'});
+                    localStorage.removeItem('paymentCheck');
+                }
+            );
+        }
+    };
+    checkPendingPayment();
+    // This effect should only run once on mount, so the dependency array is empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePurchasePackage = async (pack: PackageInfo) => {
+      setPurchaseState({...initialPurchaseState, isPurchasing: true, status: 'creating'});
+      try {
+          const cleanReturnUrl = `${window.location.origin}${window.location.pathname}`;
           const response = await fetch(`${PROXY_URL}/api/create-payment`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ description, amount: 10, returnUrl }),
+              body: JSON.stringify({
+                  description: `Пакет "${pack.name}" для АЙ-Школьник`,
+                  amount: pack.price,
+                  returnUrl: cleanReturnUrl,
+                  packageId: pack.id
+              }),
           });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || 'Не удалось создать платеж.');
 
-          setPaymentState(prev => ({ ...prev, status: 'redirecting' }));
+          localStorage.setItem('paymentCheck', JSON.stringify({
+              paymentId: data.paymentId,
+              packageId: pack.id,
+              timestamp: Date.now()
+          }));
           
-          window.open(data.confirmationUrl, '_blank', 'noopener,noreferrer,width=800,height=600');
-          setPaymentState(prev => ({ ...prev, status: 'waiting' }));
+          window.location.href = data.confirmationUrl;
 
-          await pollPaymentStatus(
-              data.paymentId, 
-              async () => {
-                setPaymentState({ ...initialPaymentState, status: 'success' });
-                await onConfirm();
-                setTimeout(() => setPaymentState(prev => prev.status === 'success' ? { ...prev, status: 'idle' } : prev), 1000);
-              },
-              () => setPaymentState({ isProcessing: false, status: 'failed', error: 'Платеж был отменен или не удался.', pendingAction: null })
-          );
-
-      } catch (error) {
-          setPaymentState({ isProcessing: false, status: 'failed', error: getGenericApiErrorMessage(error, 'Ошибка инициализации платежа.'), pendingAction: null });
+      } catch(error) {
+          localStorage.removeItem('paymentCheck');
+          setPurchaseState({...initialPurchaseState, status: 'failed', error: getGenericApiErrorMessage(error, 'Ошибка при покупке.')});
       }
-  }, [pollPaymentStatus]);
+  };
 
   const docTypeNames = { essay: 'сочинение', report: 'доклад', composition: 'реферат' };
 
@@ -193,10 +229,8 @@ const App = () => {
   const handleRequestGeneration = useCallback(() => {
     if (prepaidCodeState.isValid && prepaidCodeState.remainingUses && prepaidCodeState.remainingUses > 0) {
       handleGenerateText();
-    } else {
-      initiatePayment('Генерация текста (АЙ - Школьник)', handleGenerateText);
     }
-  }, [handleGenerateText, initiatePayment, prepaidCodeState]);
+  }, [handleGenerateText, prepaidCodeState]);
 
   const handleCheckOriginality = useCallback(async () => {
     if (!contentCreatorState.generatedText) return;
@@ -256,10 +290,8 @@ const App = () => {
   const handleRequestSolution = useCallback(() => {
     if (prepaidCodeState.isValid && prepaidCodeState.remainingUses && prepaidCodeState.remainingUses > 0) {
       handleGetSolution();
-    } else {
-      initiatePayment('Решение ДЗ (АЙ - Школьник)', handleGetSolution);
     }
-  }, [handleGetSolution, initiatePayment, prepaidCodeState]);
+  }, [handleGetSolution, prepaidCodeState]);
 
   const handleSimplifySolution = useCallback(async () => {
     const { solution } = homeworkHelperState;
@@ -308,121 +340,7 @@ const App = () => {
   };
   const handleClearCode = () => { setUserEnteredCode(''); setPrepaidCodeState(initialPrepaidCodeState); };
 
-  const claimPurchasedCode = async (paymentId: string, packageId: string) => {
-      setPurchaseState(prev => ({...prev, isPurchasing: true, status: 'claiming'}));
-      try {
-        const response = await fetch(`${PROXY_URL}/api/claim-package`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentId, packageId }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'success', purchasedCode: data.purchasedCode}));
-        
-        // Auto-apply the new code
-        setUserEnteredCode(data.purchasedCode);
-        setPrepaidCodeState({ ...initialPrepaidCodeState, isLoading: true });
-        const checkResponse = await fetch(`${PROXY_URL}/api/check-code`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: data.purchasedCode }) });
-        const checkData = await checkResponse.json();
-        if(checkResponse.ok) {
-            setPrepaidCodeState({ code: data.purchasedCode, isValid: true, remainingUses: checkData.remaining, error: null, isLoading: false });
-        }
-        
-      } catch (error) {
-        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'failed', error: getGenericApiErrorMessage(error, 'Не удалось получить код.')}));
-      }
-  };
-
-  const handlePurchasePackage = async (pack: PackageInfo) => {
-      setPurchaseState({...initialPurchaseState, isPurchasing: true, status: 'creating'});
-      try {
-          const returnUrl = `${window.location.origin}${window.location.pathname}`;
-          const response = await fetch(`${PROXY_URL}/api/create-payment`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  description: `Пакет "${pack.name}" для АЙ-Школьник`,
-                  amount: pack.price,
-                  returnUrl: returnUrl,
-                  packageId: pack.id
-              }),
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || 'Не удалось создать платеж.');
-
-          setPurchaseState(prev => ({ ...prev, status: 'redirecting' }));
-          window.open(data.confirmationUrl, '_blank', 'noopener,noreferrer');
-          setPurchaseState(prev => ({ ...prev, status: 'waiting' }));
-          
-          await pollPaymentStatus(
-              data.paymentId,
-              (metadata) => claimPurchasedCode(data.paymentId, metadata.packageId),
-              () => setPurchaseState({...initialPurchaseState, status: 'failed', error: 'Покупка отменена или не удалась.'})
-          );
-      } catch(error) {
-          setPurchaseState({...initialPurchaseState, status: 'failed', error: getGenericApiErrorMessage(error, 'Ошибка при покупке.')});
-      }
-  };
-
   // --- UI Components ---
-  const PaymentModal = () => {
-    if (paymentState.status === 'idle' || paymentState.status === 'success') return null;
-    
-    const isError = paymentState.status === 'failed' || paymentState.status === 'canceled';
-    
-    const statuses = { 
-        creating: 'Создаем безопасную ссылку на оплату...', 
-        redirecting: 'Перенаправляем в платежную систему...', 
-        waiting: 'Ожидаем подтверждения платежа. Не закрывайте эту страницу.', 
-        failed: paymentState.error || 'Произошла ошибка. Попробуйте снова или обратитесь в поддержку.', 
-        canceled: 'Платеж был отменен.'
-    };
-    
-    const handleClose = () => {
-        clearPaymentPolling();
-        setPaymentState(initialPaymentState);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white main-panel text-center p-8 max-w-md w-full animate-fade-in-up">
-                {isError ? (
-                    <Icon name="fas fa-times-circle" className="text-5xl mb-4 text-red-500" />
-                ) : (
-                    <div className="relative w-16 h-16 mx-auto mb-4">
-                        <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                )}
-                
-                <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                    {isError ? 'Ошибка' : 'Обработка платежа'}
-                </h3>
-
-                <p className="text-md mb-6 text-gray-600">
-                    {statuses[paymentState.status] ?? 'Пожалуйста, подождите...'}
-                </p>
-
-                {isError && (
-                    <button onClick={handleClose} className="w-full bg-blue-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-600 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105">
-                        Закрыть
-                    </button>
-                )}
-            </div>
-            <style>{`
-              @keyframes fade-in-up {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-              }
-              .animate-fade-in-up {
-                animation: fade-in-up 0.3s ease-out forwards;
-              }
-            `}</style>
-        </div>
-    );
-  };
-  
   const PurchasedCodeModal = () => {
     if (purchaseState.status !== 'success' || !purchaseState.purchasedCode) return null;
     const [isCopied, setIsCopied] = useState(false);
@@ -456,7 +374,6 @@ const App = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
-      <PaymentModal />
       <PurchasedCodeModal />
       <header className="w-full max-w-7xl mb-8 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 flex items-center justify-center gap-4">
@@ -466,6 +383,16 @@ const App = () => {
         <p className="mt-2 text-gray-600">Ваш персональный AI-помощник в учебе</p>
       </header>
       
+      <div className="w-full max-w-7xl mb-8">
+        <PromoCodeInputView
+            prepaidCodeState={prepaidCodeState}
+            userEnteredCode={userEnteredCode}
+            setUserEnteredCode={setUserEnteredCode}
+            onApplyCode={handleApplyCode}
+            onClearCode={handleClearCode}
+        />
+      </div>
+
       <main className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8">
         <ContentCreatorView
           state={contentCreatorState}
@@ -475,7 +402,6 @@ const App = () => {
           onIncreaseUniqueness={handleIncreaseUniqueness}
           onDownloadTxt={() => handleDownloadContent('txt')}
           onDownloadDocx={() => handleDownloadContent('docx')}
-          isPaymentProcessing={paymentState.isProcessing}
           prepaidCodeState={prepaidCodeState}
         />
         <HomeworkHelperView
@@ -484,24 +410,18 @@ const App = () => {
           onGetSolution={handleRequestSolution}
           onDownloadSolution={handleDownloadSolution}
           onSimplifySolution={handleSimplifySolution}
-          isPaymentProcessing={paymentState.isProcessing}
           prepaidCodeState={prepaidCodeState}
         />
       </main>
       
-      <div className="w-full max-w-7xl mt-12">
-        <CodeManagementView 
-            prepaidCodeState={prepaidCodeState}
+       <div className="w-full max-w-7xl mt-12">
+        <PurchaseView 
             purchaseState={purchaseState}
-            userEnteredCode={userEnteredCode}
-            setUserEnteredCode={setUserEnteredCode}
-            onApplyCode={handleApplyCode}
-            onClearCode={handleClearCode}
             onPurchasePackage={handlePurchasePackage}
             packages={purchasePackages}
         />
       </div>
-
+      
       <footer className="w-full max-w-7xl mt-12 pt-8 text-center">
         <div className="text-gray-500 text-sm space-y-4">
           <div className="flex justify-center items-center gap-x-6 gap-y-2 flex-wrap">
