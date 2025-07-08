@@ -1,39 +1,19 @@
 {
-  "name": "ай---школьник",
-  "private": true,
-  "version": "0.0.0",
+  "name": "ai-shkolnik-unified",
+  "version": "1.0.0",
+  "description": "Unified application for AI-Shkolnik",
+  "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "node server.js"
   },
+  "author": "BogateyDI",
+  "license": "ISC",
   "dependencies": {
-    "react": "^19.1.0",
-    "react-dom/client": "^19.1.0",
-    "@google/genai": "latest",
-    "docx": "^9.5.1",
-    "@/App": "latest",
-    "@/components/ContentCreatorView": "latest",
-    "@/components/HomeworkHelperView": "latest",
-    "@/components/CodeManagementView": "latest",
-    "@/components/Icon": "latest",
-    "@/components/OptionButton": "latest",
-    "@/components/SectionHeading": "latest",
-    "@/components/TextInputGroup": "latest",
-    "@/types": "latest",
-    "react-dom": "^19.1.0",
-    "dotenv": "^17.0.1",
-    "express": "^5.1.0",
+    "@google/genai": "^0.14.0",
     "cors": "^2.8.5",
-    "uuid": "^11.1.0",
-    "fs": "^0.0.1-security",
-    "path": "^0.12.7",
-    "url": "^0.11.4"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "typescript": "~5.7.2",
-    "vite": "^6.2.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "uuid": "^9.0.1"
   }
 }

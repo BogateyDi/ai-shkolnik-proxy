@@ -8,7 +8,7 @@ import { HomeworkHelperView } from '@/components/HomeworkHelperView';
 import { CodeManagementView } from '@/components/CodeManagementView';
 import type { ContentCreatorState, HomeworkHelperState, PrepaidCodeState, PurchaseState, PackageInfo } from '@/types';
 
-const PROXY_URL = 'https://ai-shkolnik-proxy-bogateydi.onrender.com';
+const PROXY_URL = ''; // Now served from the same origin
 
 declare global {
   interface Window {
@@ -365,9 +365,57 @@ const App = () => {
 
   // --- UI Components ---
   const PaymentModal = () => {
-      if (paymentState.status === 'idle' || paymentState.status === 'success') return null;
-      const statuses = { creating: 'Создаем ссылку на оплату...', redirecting: 'Открываем окно оплаты...', waiting: 'Ожидаем подтверждения платежа...', failed: paymentState.error, canceled: 'Оплата отменена.'};
-      return <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"><div className="bg-white main-panel text-center p-8"><p className="flex items-center gap-3"><Icon name="fas fa-spinner fa-spin"/>{statuses[paymentState.status] ?? 'Пожалуйста, подождите...'}</p></div></div>
+    if (paymentState.status === 'idle' || paymentState.status === 'success') return null;
+    
+    const isError = paymentState.status === 'failed' || paymentState.status === 'canceled';
+    
+    const statuses = { 
+        creating: 'Создаем безопасную ссылку на оплату...', 
+        redirecting: 'Перенаправляем в платежную систему...', 
+        waiting: 'Ожидаем подтверждения платежа. Не закрывайте эту страницу.', 
+        failed: paymentState.error || 'Произошла ошибка. Попробуйте снова или обратитесь в поддержку.', 
+        canceled: 'Платеж был отменен.'
+    };
+    
+    const handleClose = () => {
+        clearPaymentPolling();
+        setPaymentState(initialPaymentState);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-white main-panel text-center p-8 max-w-md w-full animate-fade-in-up">
+                {isError ? (
+                    <Icon name="fas fa-times-circle" className="text-5xl mb-4 text-red-500" />
+                ) : (
+                    <Icon name="fas fa-spinner fa-spin" className="text-5xl mb-4 text-blue-500" />
+                )}
+                
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                    {isError ? 'Ошибка' : 'Обработка платежа'}
+                </h3>
+
+                <p className="text-md mb-6 text-gray-600">
+                    {statuses[paymentState.status] ?? 'Пожалуйста, подождите...'}
+                </p>
+
+                {isError && (
+                    <button onClick={handleClose} className="w-full bg-blue-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-600 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105">
+                        Закрыть
+                    </button>
+                )}
+            </div>
+            <style>{`
+              @keyframes fade-in-up {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+              }
+              .animate-fade-in-up {
+                animation: fade-in-up 0.3s ease-out forwards;
+              }
+            `}</style>
+        </div>
+    );
   };
   
   const PurchasedCodeModal = () => {

@@ -2,30 +2,49 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { GoogleGenAI } from '@google/genai';
-import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs/promises';
+import { GoogleGenAI } from '@google/genai';
+import { v4 as uuidv4 } from 'uuid';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PROMO_CODES_PATH = path.join(__dirname, 'promocodes.json');
-const CLAIMED_PAYMENTS_PATH = path.join(__dirname, 'claimed_payments.json');
-
 const app = express();
 const port = process.env.PORT || 3001;
 
-// --- Data persistence functions ---
+// --- Serve Static Files ---
+app.use(express.static(path.join(__dirname)));
+app.use('/components', express.static(path.join(__dirname, 'components')));
+
+// Middleware
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+// --- API Logic ---
+const PROMO_CODES_PATH = path.join(__dirname, 'promocodes.json');
+const CLAIMED_PAYMENTS_PATH = path.join(__dirname, 'claimed_payments.json');
+
+const API_KEY = process.env.API_KEY;
+if (!API_KEY) {
+  console.error("API_KEY is not defined in environment variables.");
+}
+
+const YOO_KASSA_SHOP_ID = process.env.YOO_KASSA_SHOP_ID;
+const YOO_KASSA_SECRET_KEY = process.env.YOO_KASSA_SECRET_KEY;
+
+if (!YOO_KASSA_SHOP_ID || !YOO_KASSA_SECRET_KEY) {
+    console.warn("YooKassa credentials are not defined. Payment endpoints will not work.");
+}
+
+const ai = new GoogleGenAI({ apiKey: API_KEY });
+
 const readData = async (filePath, defaultData = {}) => {
   try {
     await fs.access(filePath);
     const rawData = await fs.readFile(filePath, 'utf-8');
-    // Handle empty file case
-    if (rawData.trim() === '') {
-        return defaultData;
-    }
+    if (rawData.trim() === '') return defaultData;
     return JSON.parse(rawData);
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -33,7 +52,6 @@ const readData = async (filePath, defaultData = {}) => {
       return defaultData;
     }
     console.error(`Error reading file ${filePath}:`, error);
-    // In case of other errors (like parsing), it might be better to return default data
     return defaultData;
   }
 };
@@ -46,48 +64,25 @@ const writeData = async (filePath, data) => {
   }
 };
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-
-const API_KEY = process.env.API_KEY;
-if (!API_KEY) {
-  console.error("API_KEY is not defined in environment variables.");
-  process.exit(1);
-}
-
-const YOO_KASSA_SHOP_ID = process.env.YOO_KASSA_SHOP_ID;
-const YOO_KASSA_SECRET_KEY = process.env.YOO_KASSA_SECRET_KEY;
-
-if (!YOO_KASSA_SHOP_ID || !YOO_KASSA_SECRET_KEY) {
-    console.warn("YooKassa credentials are not defined. Payment endpoints will not work.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-
 const getApiErrorMessage = (error) => {
     if (error && error.message) return error.message;
     return "Произошла неизвестная ошибка на сервере при обращении к AI.";
 };
 
 const packages = {
-    'pack10': { generations: 10, price: 80.00 }, // ~20% discount
-    'pack100': { generations: 100, price: 500.00 } // 50% discount
+    'pack10': { generations: 10, price: 80.00 },
+    'pack100': { generations: 100, price: 500.00 }
 };
 
 const checkCodeExpiration = (codeData) => {
     if (codeData.createdAt) {
         const expiresAt = new Date(codeData.createdAt);
         expiresAt.setDate(expiresAt.getDate() + 30);
-        if (new Date() > expiresAt) {
-            return true; // expired
-        }
+        return new Date() > expiresAt;
     }
-    return false; // not expired or no creation date
+    return false;
 };
 
-
-// Generic generation endpoint
 app.post('/api/generate', async (req, res) => {
   try {
     const { model, contents, config, prepaidCode } = req.body;
@@ -130,7 +125,6 @@ app.post('/api/generate', async (req, res) => {
   }
 });
 
-// Check prepaid code endpoint
 app.post('/api/check-code', async (req, res) => {
     try {
         const { code } = req.body;
@@ -156,7 +150,6 @@ app.post('/api/check-code', async (req, res) => {
     }
 });
 
-// Create Payment endpoint (for single generations or packages)
 app.post('/api/create-payment', async (req, res) => {
     if (!YOO_KASSA_SHOP_ID || !YOO_KASSA_SECRET_KEY) {
         return res.status(500).json({ error: 'Платежная система не настроена на сервере.' });
@@ -168,20 +161,11 @@ app.post('/api/create-payment', async (req, res) => {
         const authString = Buffer.from(`${YOO_KASSA_SHOP_ID}:${YOO_KASSA_SECRET_KEY}`).toString('base64');
         
         const paymentPayload = {
-            amount: {
-                value: amount.toFixed(2),
-                currency: 'RUB'
-            },
+            amount: { value: amount.toFixed(2), currency: 'RUB' },
             capture: true,
-            confirmation: {
-                type: 'redirect',
-                return_url: returnUrl
-            },
+            confirmation: { type: 'redirect', return_url: returnUrl },
             description: description,
-            metadata: {
-                idempotenceKey,
-                ...(packageId && { packageId })
-            }
+            metadata: { idempotenceKey, ...(packageId && { packageId }) }
         };
 
         const paymentResponse = await fetch('https://api.yookassa.ru/v3/payments', {
@@ -204,7 +188,6 @@ app.post('/api/create-payment', async (req, res) => {
     }
 });
 
-// Check Payment Status endpoint
 app.get('/api/check-payment/:paymentId', async (req, res) => {
     if (!YOO_KASSA_SHOP_ID || !YOO_KASSA_SECRET_KEY) {
         return res.status(500).json({ error: 'Платежная система не настроена на сервере.' });
@@ -224,7 +207,6 @@ app.get('/api/check-payment/:paymentId', async (req, res) => {
     }
 });
 
-// Claim purchased package endpoint
 app.post('/api/claim-package', async (req, res) => {
     try {
         const { paymentId, packageId } = req.body;
@@ -238,7 +220,6 @@ app.post('/api/claim-package', async (req, res) => {
             return res.status(400).json({ error: 'Этот платеж уже был использован для получения кода.' });
         }
 
-        // Generate a new unique code
         const codes = await readData(PROMO_CODES_PATH, {});
         let newCode;
         do {
@@ -262,6 +243,11 @@ app.post('/api/claim-package', async (req, res) => {
     }
 });
 
+// Fallback to index.html for client-side routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.listen(port, () => {
-  console.log(`Proxy server for AI-Shkolnik listening on port ${port}`);
+  console.log(`AI-Shkolnik server listening on port ${port}`);
 });

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-shkolnik-cache-v3'; // Incremented cache version
+const CACHE_NAME = 'ai-shkolnik-cache-v10'; // Incremented cache version
 const urlsToCache = [
   './',
   './index.html',
@@ -19,19 +19,24 @@ const urlsToCache = [
   'https://unpkg.com/@babel/standalone/babel.min.js',
   'https://cdn.jsdelivr.net/npm/marked/marked.min.js',
   'https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js',
-  'https://esm.sh/react@^19.1.0',
-  'https://esm.sh/react-dom@^19.1.0/client',
-  'https://esm.sh/@google/genai',
-  'https://esm.sh/docx@^9.5.1'
+  'https://esm.sh/react@19.1.0',
+  'https://esm.sh/react-dom@19.1.0/client',
+  'https://esm.sh/@google/genai@1.8.0',
+  'https://esm.sh/docx@9.5.1'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('Opened cache');
-      return cache.addAll(urlsToCache);
+      const cachePromises = urlsToCache.map(urlToCache => {
+        return cache.add(urlToCache).catch(err => {
+            console.warn(`Failed to cache ${urlToCache}:`, err);
+        });
+      });
+      return Promise.all(cachePromises);
     }).catch(err => {
-      console.error('Failed to open cache or add URLs: ', err);
+      console.error('Failed to open cache: ', err);
     })
   );
 });
@@ -39,14 +44,12 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // Cache-first strategy
       if (response) {
         return response;
       }
       return fetch(event.request).then(
         (networkResponse) => {
-          // If request is successful, clone it and cache it.
-          if(networkResponse && networkResponse.status === 200) {
+          if(networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
               .then(cache => {
@@ -55,7 +58,11 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         }
-      );
+      ).catch(error => {
+        console.error('Fetch failed; returning offline page instead.', error);
+        // You can return a fallback page here if you have one cached
+        // return caches.match('/offline.html');
+      });
     })
   );
 });

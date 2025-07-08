@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Icon } from '@/components/Icon';
 import { SectionHeading } from '@/components/SectionHeading';
@@ -87,7 +88,12 @@ export const CodeManagementView: React.FC<CodeManagementViewProps> = ({
               </div>
             ))}
           </div>
-          {purchaseState.status === 'failed' && <p className="text-center text-red-600 mt-2 text-sm">{purchaseState.error}</p>}
+          {purchaseState.status === 'failed' && purchaseState.error && (
+            <div className="mt-4 p-3 bg-red-100 border border-red-300 text-red-800 rounded-lg text-sm text-center">
+                <Icon name="fas fa-exclamation-triangle" className="mr-2" />
+                {purchaseState.error}
+            </div>
+          )}
           {(purchaseState.status === 'waiting' || purchaseState.status === 'claiming' || purchaseState.status === 'creating') && 
             <p className="text-center text-blue-600 mt-2 text-sm flex items-center justify-center gap-2">
                 <Icon name="fas fa-spinner fa-spin" /> 
