@@ -27,7 +27,7 @@ export const CodeManagementView: React.FC<CodeManagementViewProps> = ({
 }) => {
   return (
     <div className="main-panel">
-      <SectionHeading title="Преимущества" iconName="fas fa-tags" />
+      <SectionHeading title="Покупка и активация генераций" iconName="fas fa-shopping-basket" />
       <div className="space-y-8">
         
         {/* Code Input Section */}
@@ -35,7 +35,7 @@ export const CodeManagementView: React.FC<CodeManagementViewProps> = ({
           <label htmlFor="prepaid-code-input" className="block text-md font-medium text-gray-700 mb-2">
             Введите ваш код
           </label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               id="prepaid-code-input"
               type="text"
@@ -46,14 +46,14 @@ export const CodeManagementView: React.FC<CodeManagementViewProps> = ({
               disabled={prepaidCodeState.isValid || prepaidCodeState.isLoading}
             />
             {prepaidCodeState.isValid ? (
-              <button onClick={onClearCode} className="px-4 py-2 bg-gray-500 text-white text-sm font-semibold rounded-md hover:bg-gray-600 transition-colors">
+              <button onClick={onClearCode} className="px-4 py-2 bg-gray-500 text-white text-sm font-semibold rounded-md hover:bg-gray-600 transition-colors flex-shrink-0">
                 Сменить
               </button>
             ) : (
               <button
                 onClick={onApplyCode}
                 disabled={!userEnteredCode || prepaidCodeState.isLoading}
-                className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-md hover:bg-blue-600 disabled:opacity-50 w-[100px] transition-colors"
+                className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-md hover:bg-blue-600 disabled:opacity-50 sm:w-auto transition-colors flex-shrink-0"
               >
                 {prepaidCodeState.isLoading ? <Icon name="fas fa-spinner fa-spin" /> : 'Применить'}
               </button>
@@ -72,12 +72,16 @@ export const CodeManagementView: React.FC<CodeManagementViewProps> = ({
         {/* Purchase Packages Section */}
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-gray-700">Наборы</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {packages.map(pack => (
-              <div key={pack.id} className="bg-gray-50 rounded-2xl shadow-md p-6 flex flex-col items-center border border-gray-200 hover:shadow-lg transition-shadow text-center">
-                <h4 className="text-lg font-bold text-gray-800">{pack.name}</h4>
-                <p className="text-gray-500 mb-4">Экономия {pack.discount}%</p>
-                <p className="text-3xl font-extrabold text-gray-900 mb-6">{pack.price}₽</p>
+              <div key={pack.id} className="h-full bg-gray-50 rounded-2xl shadow-md p-6 flex flex-col border border-gray-200 hover:shadow-lg transition-shadow text-center">
+                <div className="flex-grow w-full">
+                  <h4 className="text-lg font-bold text-gray-800">{pack.name}</h4>
+                  <p className="text-gray-500 mb-4" style={{ minHeight: '1.25rem' }}>
+                      {pack.discount > 0 ? `Экономия ${pack.discount}%` : ''}
+                  </p>
+                  <p className="text-3xl font-extrabold text-gray-900 mb-6">{pack.price}₽</p>
+                </div>
                 <button
                   onClick={() => onPurchasePackage(pack)}
                   disabled={purchaseState.isPurchasing}

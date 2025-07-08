@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { SectionHeading } from '@/components/SectionHeading';
@@ -13,7 +14,6 @@ interface ContentCreatorViewProps {
   onIncreaseUniqueness: () => void;
   onDownloadTxt: () => void;
   onDownloadDocx: () => void;
-  isPaymentProcessing: boolean;
   prepaidCodeState: PrepaidCodeState;
 }
 
@@ -31,7 +31,6 @@ export const ContentCreatorView: React.FC<ContentCreatorViewProps> = ({
   onIncreaseUniqueness,
   onDownloadTxt,
   onDownloadDocx,
-  isPaymentProcessing,
   prepaidCodeState,
 }) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -58,7 +57,7 @@ export const ContentCreatorView: React.FC<ContentCreatorViewProps> = ({
   
   const uniquenessThreshold = getUniquenessThreshold(age);
   const isOriginalitySufficient = originalityScore !== null && originalityScore > uniquenessThreshold;
-  const isActionLocked = isGenerating || isOriginalitySufficient || isPaymentProcessing || prepaidCodeState.isLoading;
+  const isActionLocked = isGenerating || isOriginalitySufficient || prepaidCodeState.isLoading;
 
   const handleDocTypeSelect = (id: string) => {
     setState(prev => ({ ...prev, docType: id as DocType, error: null, generatedText: null, originalityScore: null }));
@@ -94,13 +93,6 @@ export const ContentCreatorView: React.FC<ContentCreatorViewProps> = ({
     }
     return null;
   }
-  
-  const getButtonText = () => {
-    if (prepaidCodeState.isValid) {
-        return 'Создать текст (1 использование)';
-    }
-    return 'Создать текст (10₽)';
-  };
 
   return (
     <div className="main-panel space-y-6">
@@ -153,12 +145,18 @@ export const ContentCreatorView: React.FC<ContentCreatorViewProps> = ({
       <div className="text-center">
         <button
           onClick={onGenerate}
-          disabled={isActionLocked || !docType || !topic}
+          disabled={isActionLocked || !docType || !topic || !prepaidCodeState.isValid}
           className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
         >
           <Icon name="fas fa-play" className="mr-2" />
-          {getButtonText()}
+          Создать текст
         </button>
+        {(!prepaidCodeState.isValid && !prepaidCodeState.isLoading) && (
+            <p className="text-center text-sm text-slate-600 mt-2">
+                <Icon name="fas fa-info-circle" className="mr-1" />
+                Для генерации нужен активный код. Приобретите пакет или введите код ниже.
+            </p>
+        )}
       </div>
 
       {/* Output Section */}

@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { Icon } from '@/components/Icon';
 import { SectionHeading } from '@/components/SectionHeading';
@@ -9,7 +10,6 @@ interface HomeworkHelperViewProps {
   onGetSolution: () => void;
   onDownloadSolution: (format: 'txt' | 'docx') => void;
   onSimplifySolution: () => void;
-  isPaymentProcessing: boolean;
   prepaidCodeState: PrepaidCodeState;
 }
 
@@ -19,14 +19,13 @@ export const HomeworkHelperView: React.FC<HomeworkHelperViewProps> = ({
   onGetSolution,
   onDownloadSolution,
   onSimplifySolution,
-  isPaymentProcessing,
   prepaidCodeState,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isCopied, setIsCopied] = useState(false);
   const { file, fileContent, fileType, fileName, isProcessing, solution, error, isSimplifying } = state;
   const hasSolution = !!solution;
-  const isActionLocked = isProcessing || hasSolution || isPaymentProcessing || prepaidCodeState.isLoading;
+  const isActionLocked = isProcessing || hasSolution || prepaidCodeState.isLoading;
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if(event.target.files?.length === 0) return;
@@ -81,14 +80,6 @@ export const HomeworkHelperView: React.FC<HomeworkHelperViewProps> = ({
       setTimeout(() => setIsCopied(false), 2000);
     }).catch(err => console.error('Failed to copy text: ', err));
   };
-  
-  const getButtonText = () => {
-    if (prepaidCodeState.isValid) {
-        return 'Получить решение (1 использование)';
-    }
-    return 'Получить решение (10₽)';
-  };
-
 
   return (
     <div className="main-panel space-y-6">
@@ -148,12 +139,18 @@ export const HomeworkHelperView: React.FC<HomeworkHelperViewProps> = ({
       <div className="text-center">
         <button
           onClick={onGetSolution}
-          disabled={isActionLocked || !fileContent}
+          disabled={isActionLocked || !fileContent || !prepaidCodeState.isValid}
           className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:shadow-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mx-auto"
         >
             <Icon name="fas fa-lightbulb" className="mr-2"/>
-            {getButtonText()}
+            Получить решение
         </button>
+        {(!prepaidCodeState.isValid && !prepaidCodeState.isLoading) && (
+            <p className="text-center text-sm text-slate-600 mt-2">
+                <Icon name="fas fa-info-circle" className="mr-1" />
+                Для генерации нужен активный код. Приобретите пакет или введите код ниже.
+            </p>
+        )}
       </div>
 
        {/* Output Section */}
