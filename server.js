@@ -165,6 +165,25 @@ app.post('/api/create-payment', async (req, res) => {
             capture: true,
             confirmation: { type: 'redirect', return_url: returnUrl },
             description: description,
+            receipt: {
+                customer: {
+                    // Используем плейсхолдер, так как у нас нет email пользователя
+                    email: "payment@ai-schoolboy.ru"
+                },
+                items: [
+                    {
+                        description: description.substring(0, 128), // Описание товара в чеке (лимит 128 символов)
+                        quantity: "1.00",
+                        amount: {
+                            value: amount.toFixed(2),
+                            currency: "RUB"
+                        },
+                        vat_code: "1", // 1 = Без НДС
+                        payment_mode: "full_prepayment",
+                        payment_subject: "service"
+                    }
+                ]
+            },
             metadata: { idempotenceKey, ...(packageId && { packageId }) }
         };
 
