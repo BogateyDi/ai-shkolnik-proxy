@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-shkolnik-cache-v11'; // Incremented cache version
+const CACHE_NAME = 'ai-shkolnik-cache-v12'; // Incremented cache version
 const urlsToCache = [
   './',
   './index.html',

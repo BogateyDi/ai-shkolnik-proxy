@@ -58,4 +58,91 @@ export interface OptionData {
     id: string;
     name: string;
     subtext?: string;
+    tooltipText?: string;
+}
+
+// User type
+export interface User {
+    id: string;
+    username: string;
+}
+
+// --- "Book AI" / "Scientific Work" Module Types ---
+
+export interface BookAISubItem extends OptionData {}
+
+export interface BookAICategory {
+    id: string;
+    name: string;
+    tooltipText?: string;
+    subItems: BookAISubItem[];
+}
+
+export interface BookAIAudience extends OptionData {
+    description: string;
+}
+
+export interface BookAIVolume extends OptionData {
+    description: string;
+    estimatedParts: number;
+    targetWordCountPerPart: number;
+}
+
+export interface ScientificDocType extends OptionData {}
+export interface ScientificMethodology extends OptionData {}
+
+
+// --- "Medical AI" Module Types ---
+
+export type MedicalViewMode = 'xray' | 'diagnosis' | 'verification' | 'lab';
+export type AnalysisStage = 'idle' | 'preparing' | 'analyzing' | 'concluding';
+
+export interface BaseFile {
+    id: string;
+    name: string;
+    type: 'image' | 'text';
+    content: string;
+}
+export interface VerificationFile extends BaseFile {}
+export interface LabFile extends BaseFile {}
+
+export interface MedicalState {
+    activeMode: MedicalViewMode;
+    analysisStage: AnalysisStage;
+
+    isProcessingXray: boolean;
+    isProcessingDiagnosis: boolean;
+    isProcessingVerificationFile: boolean;
+    isProcessingLabFile: boolean;
+
+    isAnalyzingXray: boolean;
+    isAnalyzingDiagnosis: boolean;
+    isAnalyzingVerification: boolean;
+    isAnalyzingLab: boolean;
+    isExtractingLabData: boolean;
+
+    xrayError: string | null;
+    diagnosisError: string | null;
+    verificationError: string | null;
+    labError: string | null;
+
+    xrayAnalysis: string | null;
+    diagnosisAnalysis: string | null;
+    verificationAnalysis: string | null;
+    labAnalysis: string | null;
+    
+    xrayImageBase64: string | null;
+    xrayImageName: string | null;
+    
+    diagnosisFileContent: string | null;
+    diagnosisFileName: string | null;
+    diagnosisFileType: 'image' | 'text' | null;
+    
+    verificationFiles: VerificationFile[];
+    
+    labFiles: LabFile[];
+    labPatientName: string;
+    labPatientGender: string;
+    labPatientAge: string;
+    labAnalystName: string;
 }

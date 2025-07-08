@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 10000; // Use port from environment or 10000 for Render
 
 // --- Serve Static Files ---
 app.use(express.static(path.join(__dirname)));
@@ -70,6 +70,7 @@ const getApiErrorMessage = (error) => {
 };
 
 const packages = {
+    'pack2': { generations: 2, price: 20.00 },
     'pack10': { generations: 10, price: 80.00 },
     'pack100': { generations: 100, price: 500.00 }
 };
@@ -167,18 +168,17 @@ app.post('/api/create-payment', async (req, res) => {
             description: description,
             receipt: {
                 customer: {
-                    // Используем плейсхолдер, так как у нас нет email пользователя
                     email: "payment@ai-schoolboy.ru"
                 },
                 items: [
                     {
-                        description: description.substring(0, 128), // Описание товара в чеке (лимит 128 символов)
+                        description: description.substring(0, 128),
                         quantity: "1.00",
                         amount: {
                             value: amount.toFixed(2),
                             currency: "RUB"
                         },
-                        vat_code: "1", // 1 = Без НДС
+                        vat_code: "1",
                         payment_mode: "full_prepayment",
                         payment_subject: "service"
                     }
