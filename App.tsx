@@ -112,29 +112,48 @@ const App = () => {
   const claimPurchasedCode = async (paymentId: string, packageId: string) => {
       setPurchaseState(prev => ({...prev, isPurchasing: true, status: 'claiming'}));
       try {
-        const response = await fetch(`${PROXY_URL}/api/claim-package`, {
+        // Step 1: Claim the package to get the code
+        const claimResponse = await fetch(`${PROXY_URL}/api/claim-package`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ paymentId, packageId }),
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'success', purchasedCode: data.purchasedCode}));
-        
-        setUserEnteredCode(data.purchasedCode);
-        setPrepaidCodeState({ ...initialPrepaidCodeState, isLoading: true });
-        const checkResponse = await fetch(`${PROXY_URL}/api/check-code`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: data.purchasedCode }) });
+        const claimData = await claimResponse.json();
+        if (!claimResponse.ok) throw new Error(claimData.error || 'Не удалось получить код пакета.');
+        const newCode = claimData.purchasedCode;
+
+        // Step 2: Check the newly claimed code to get its details
+        const checkResponse = await fetch(`${PROXY_URL}/api/check-code`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: newCode }),
+        });
         const checkData = await checkResponse.json();
-        if(checkResponse.ok) {
-            setPrepaidCodeState({ code: data.purchasedCode, isValid: true, remainingUses: checkData.remaining, error: null, isLoading: false });
-        }
-        
+        if (!checkResponse.ok) throw new Error(checkData.error || 'Не удалось проверить новый код.');
+
+        // Step 3: All async operations are done. Update all states at once.
+        setPurchaseState({
+            isPurchasing: false,
+            status: 'success',
+            purchasedCode: newCode,
+            error: null,
+        });
+        setPrepaidCodeState({
+            code: newCode,
+            isValid: true,
+            remainingUses: checkData.remaining,
+            error: null,
+            isLoading: false,
+        });
+        setUserEnteredCode(newCode);
+
       } catch (error) {
-        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'failed', error: getGenericApiErrorMessage(error, 'Не удалось получить код.')}));
+        setPurchaseState(prev => ({...prev, isPurchasing: false, status: 'failed', error: getGenericApiErrorMessage(error, 'Произошла ошибка при активации покупки.'), purchasedCode: null}));
       } finally {
         localStorage.removeItem('paymentCheck');
       }
   };
+
 
   useEffect(() => {
     const checkPendingPayment = async () => {
